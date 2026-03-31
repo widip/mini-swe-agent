@@ -20,14 +20,31 @@ class LocalEnvironment:
         """This class executes bash commands directly on the local machine."""
         self.config = config_class(**kwargs)
 
-    def execute(self, action: dict, cwd: str = "", *, timeout: int | None = None) -> dict[str, Any]:
+    def execute(
+        self,
+        action: dict | str,
+        cwd: str = "",
+        *,
+        timeout: int | None = None,
+        interpreter: list[str] | None = None,
+    ) -> dict[str, Any]:
         """Execute a command in the local environment and return the result as a dict."""
+        if isinstance(action, str):
+            action = {"command": action}
         command = action.get("command", "")
+        # For LocalEnvironment, if interpreter is specified, we should use it.
+        # Otherwise, we use shell=True with the default system shell.
+        if interpreter:
+            command_to_run = [*interpreter, command]
+            shell = False
+        else:
+            command_to_run = command
+            shell = True
         cwd = cwd or self.config.cwd or os.getcwd()
         try:
             result = subprocess.run(
-                command,
-                shell=True,
+                command_to_run,
+                shell=shell,
                 text=True,
                 cwd=cwd,
                 env=os.environ | self.config.env,

@@ -1,0 +1,30 @@
+# Use python 3.13 slim as a base
+FROM python:3.13-slim AS builder
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+# Set the working directory
+WORKDIR /mytilus
+
+# Install build dependencies if needed
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy the local Mytilus source (this assumes it's mounted in the container OR copied here)
+# For the builder, we just want a clean environment that can be copied.
+# We will mount the actual source at runtime, but we need the site-packages.
+
+# Create a virtual environment with Python 3.13
+RUN python3 -m venv --copies /opt/mytilus-venv
+
+# Install Mytilus dependencies
+COPY . /mytilus/source
+RUN /opt/mytilus-venv/bin/python -m pip install -e /mytilus/source
+
+# Final image
+FROM debian:bookworm-slim
+COPY --from=builder /opt/mytilus-venv /opt/mytilus-venv
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+ENV PATH="/opt/mytilus-venv/bin:$PATH"
